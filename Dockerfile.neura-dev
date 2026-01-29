@@ -20,7 +20,7 @@ ARG APT_MIRROR=http://mirrors.tuna.tsinghua.edu.cn/ubuntu
 ARG MIRROR_HOST=mirrors.tuna.tsinghua.edu.cn
 ARG MIRROR_IP=
 
-# 1. 安装基础依赖
+# 1. 安装基础依赖（包含 gnupg 用于添加 PPA）
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
@@ -35,6 +35,8 @@ RUN apt-get update && \
     software-properties-common \
     sudo \
     vim \
+    gnupg \
+    gpg-agent \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. 添加 deadsnakes PPA 并安装 Python 3.11
