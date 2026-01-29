@@ -1,0 +1,101 @@
+# Dockerfile for Neura Development Environment
+# Based on GitHub Actions workflow configuration
+# Note: LLVM is pre-built on host and will be mounted via volume
+
+# 使用 Ubuntu 22.04 基础镜像
+ARG BASE_IMAGE=ubuntu:22.04
+FROM ${BASE_IMAGE}
+
+# 避免交互式提示
+ENV DEBIAN_FRONTEND=noninteractive
+ENV WORKSPACE=/workspace
+
+# 构建参数 - 用于创建与 host 匹配的用户
+ARG USERNAME=developer
+ARG USER_UID=1000
+ARG USER_GID=1000
+ARG DNS1=223.5.5.5
+ARG DNS2=114.114.114.114
+ARG APT_MIRROR=http://mirrors.tuna.tsinghua.edu.cn/ubuntu
+ARG MIRROR_HOST=mirrors.tuna.tsinghua.edu.cn
+ARG MIRROR_IP=
+
+# 1. 安装基础依赖
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    wget \
+    ca-certificates \
+    ninja-build \
+    clang \
+    lld \
+    ccache \
+    graphviz \
+    software-properties-common \
+    sudo \
+    vim \
+    && rm -rf /var/lib/apt/lists/*
+
+# 2. 添加 deadsnakes PPA 并安装 Python 3.11
+RUN add-apt-repository ppa:deadsnakes/ppa -y && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-dev \
+    python3.11-distutils \
+    && rm -rf /var/lib/apt/lists/*
+
+# 3. 安装 pip for Python 3.11
+RUN wget https://bootstrap.pypa.io/get-pip.py && \
+    python3.11 get-pip.py && \
+    rm get-pip.py
+
+# 4. 安装最新版本的 CMake
+ENV CMAKE_VERSION=3.28.3
+RUN wget -q -O cmake.tar.gz \
+    https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz && \
+    tar -xzf cmake.tar.gz -C /usr/local --strip-components=1 && \
+    rm cmake.tar.gz && \
+    cmake --version
+
+# 5. 设置 Python 3.11 为默认版本
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+
+# 6. 创建与 host 用户匹配的用户和组
+RUN groupadd --gid ${USER_GID} ${USERNAME} 2>/dev/null || true && \
+    useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash ${USERNAME} && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# 7. 切换到新用户
+USER ${USERNAME}
+WORKDIR ${WORKSPACE}
+
+# 8. 安装 Python 依赖
+# 安装 NumPy 1.x（与 torch-mlir 兼容）
+RUN python3.11 -m pip install --no-cache-dir "numpy<2.0"
+
+# 9. 下载并安装 PyTorch（预编译轮子）
+RUN wget https://github.com/llvm/torch-mlir/releases/download/snapshot-20231229.1067/torch-2.2.0.dev20231204+cpu-cp311-cp311-linux_x86_64.whl && \
+    python3.11 -m pip install --no-cache-dir torch-2.2.0.dev20231204+cpu-cp311-cp311-linux_x86_64.whl && \
+    rm torch-2.2.0.dev20231204+cpu-cp311-cp311-linux_x86_64.whl
+
+# 10. 下载并安装 torch-mlir
+RUN wget https://github.com/llvm/torch-mlir/releases/download/snapshot-20231229.1067/torch_mlir-20231229.1067-cp311-cp311-linux_x86_64.whl && \
+    python3.11 -m pip install --no-cache-dir torch_mlir-20231229.1067-cp311-cp311-linux_x86_64.whl && \
+    rm torch_mlir-20231229.1067-cp311-cp311-linux_x86_64.whl
+
+# 11. 设置环境变量（LLVM 将从 host 挂载）
+ENV PATH="${WORKSPACE}/llvm-project/build/bin:${PATH}"
+
+# 12. 设置 ccache 环境变量
+ENV CCACHE_DIR="${WORKSPACE}/.ccache"
+ENV CCACHE_COMPRESS=true
+ENV CCACHE_MAXSIZE=1G
+
+# 13. 设置最终工作目录
+WORKDIR ${WORKSPACE}/dataflow
+
+# 默认命令
+CMD ["/bin/bash"]
