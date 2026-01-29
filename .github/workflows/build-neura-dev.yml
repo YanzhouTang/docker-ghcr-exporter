@@ -10,8 +10,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # GHCR requires lowercase repository names
-  IMAGE_NAME: yanzhotang/neura-dev
 
 jobs:
   build-and-push:
@@ -34,11 +32,17 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Prepare image name (lowercase)
+      id: prepare
+      run: |
+        REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        echo "image_name=${REPO_OWNER_LOWER}/neura-dev" >> $GITHUB_OUTPUT
+    
     - name: Extract metadata for Docker
       id: meta
       uses: docker/metadata-action@v4
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        images: ${{ env.REGISTRY }}/${{ steps.prepare.outputs.image_name }}
         tags: |
           type=raw,value=latest
           type=sha,prefix={{date 'YYYYMMDD'}}-
@@ -67,6 +71,6 @@ jobs:
     - name: Image build complete
       run: |
         echo "✅ Image built and pushed successfully!"
-        echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+        echo "Image: ${{ env.REGISTRY }}/${{ steps.prepare.outputs.image_name }}:latest"
         echo ""
         echo "Next step: Run 'sync-neura-dev-to-aliyun' workflow to sync to Aliyun ACR"
