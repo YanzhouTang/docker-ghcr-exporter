@@ -10,7 +10,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/neura-dev
+  # GHCR requires lowercase repository names
+  IMAGE_NAME: yanzhotang/neura-dev
 
 jobs:
   build-and-push:

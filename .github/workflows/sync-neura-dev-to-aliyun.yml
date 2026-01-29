@@ -30,8 +30,9 @@ jobs:
 
       - name: Pull, Tag, and Push Docker Image
         run: |
-          # 定义源镜像和目标镜像
-          SOURCE_IMAGE="ghcr.io/${{ github.repository_owner }}/neura-dev:latest"
+          # 定义源镜像和目标镜像（GHCR要求小写）
+          REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          SOURCE_IMAGE="ghcr.io/${REPO_OWNER_LOWER}/neura-dev:latest"
           TARGET_IMAGE="${{ secrets.DOCKER_REGISTRY_CN }}/enzotang/neura-dev:latest"
 
           # 从GHCR拉取镜像
