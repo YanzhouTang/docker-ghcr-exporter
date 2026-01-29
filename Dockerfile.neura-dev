@@ -65,38 +65,34 @@ RUN wget -q -O cmake.tar.gz \
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
 
-# 6. 创建与 host 用户匹配的用户和组
-RUN groupadd --gid ${USER_GID} ${USERNAME} 2>/dev/null || true && \
-    useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash ${USERNAME} && \
-    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-
-# 7. 切换到新用户
-USER ${USERNAME}
-WORKDIR ${WORKSPACE}
-
-# 8. 安装 Python 依赖
+# 6. 安装 Python 依赖到系统全局位置（以root用户）
 # 安装 NumPy 1.x（与 torch-mlir 兼容）
 RUN python3.11 -m pip install --no-cache-dir "numpy<2.0"
 
-# 9. 下载并安装 PyTorch（预编译轮子）
+# 7. 下载并安装 PyTorch（预编译轮子）
 RUN wget https://github.com/llvm/torch-mlir/releases/download/snapshot-20231229.1067/torch-2.2.0.dev20231204+cpu-cp311-cp311-linux_x86_64.whl && \
     python3.11 -m pip install --no-cache-dir torch-2.2.0.dev20231204+cpu-cp311-cp311-linux_x86_64.whl && \
     rm torch-2.2.0.dev20231204+cpu-cp311-cp311-linux_x86_64.whl
 
-# 10. 下载并安装 torch-mlir
+# 8. 下载并安装 torch-mlir
 RUN wget https://github.com/llvm/torch-mlir/releases/download/snapshot-20231229.1067/torch_mlir-20231229.1067-cp311-cp311-linux_x86_64.whl && \
     python3.11 -m pip install --no-cache-dir torch_mlir-20231229.1067-cp311-cp311-linux_x86_64.whl && \
     rm torch_mlir-20231229.1067-cp311-cp311-linux_x86_64.whl
 
-# 11. 设置环境变量（LLVM 将从 host 挂载）
+# 9. 创建示例用户（仅用于演示，实际运行时会使用host UID）
+RUN groupadd --gid ${USER_GID} ${USERNAME} 2>/dev/null || true && \
+    useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash ${USERNAME} && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# 10. 设置环境变量（LLVM 将从 host 挂载）
 ENV PATH="${WORKSPACE}/llvm-project/build/bin:${PATH}"
 
-# 12. 设置 ccache 环境变量
+# 11. 设置 ccache 环境变量
 ENV CCACHE_DIR="${WORKSPACE}/.ccache"
 ENV CCACHE_COMPRESS=true
 ENV CCACHE_MAXSIZE=1G
 
-# 13. 设置最终工作目录
+# 12. 设置最终工作目录
 WORKDIR ${WORKSPACE}/dataflow
 
 # 默认命令
